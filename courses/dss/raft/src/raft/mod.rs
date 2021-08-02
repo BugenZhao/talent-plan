@@ -93,7 +93,7 @@ pub struct Raft {
 /// Macro for logging message combined with state of the Raft peer.
 macro_rules! rlog {
     (level: $level:ident, $raft:expr, $($arg:tt)+) => {
-        ::log::$level!("[#{} @{} as {}] {}", $raft.me, $raft.p.current_term, $raft.role, format!($($arg)+))
+        ::log::$level!("[#{} @{} as {}] {}", $raft.me, $raft.p.current_term, $raft.role, format_args!($($arg)+))
     };
     ($raft:expr, $($arg:tt)+) => {
         rlog!(level: info, $raft, $($arg)+)
@@ -142,8 +142,7 @@ impl Raft {
     /// see paper's Figure 2 for a description of what should be persistent.
     fn persist(&self) {
         // Your code here (2C).
-        let mut data = Vec::new();
-        labcodec::encode(&self.p, &mut data).unwrap(); // todo: merge
+        let data = bincode::serialize(&self.p).unwrap(); // todo: merge
         self.persister.save_raft_state(data);
     }
 
@@ -152,11 +151,12 @@ impl Raft {
         if data.is_empty() {
             // bootstrap without any state?
             rlog!(self, "start without any state");
-            return;
         }
         // Your code here (2C).
-        self.p = labcodec::decode(data).unwrap();
-        rlog!(self, "start with restored state");
+        else if let Ok(p) = bincode::deserialize(data) {
+            rlog!(self, "start with restored state");
+            self.p = p;
+        }
     }
 
     /// The service using Raft (e.g. a k/v server) wants to start
@@ -730,11 +730,12 @@ impl Node {
             .spawn(async move {
                 let build_timeout_timer = || {
                     futures_timer::Delay::new(Duration::from_millis(
-                        rand::thread_rng().gen_range(150, 250),
+                        rand::thread_rng().gen_range(300, 500),
                     ))
                     .fuse()
                 };
-                let build_hb_timer = || futures_timer::Delay::new(Duration::from_millis(50)).fuse();
+                let build_hb_timer =
+                    || futures_timer::Delay::new(Duration::from_millis(100)).fuse();
 
                 let mut timeout_timer = build_timeout_timer();
                 let mut hb_timer = build_hb_timer();
