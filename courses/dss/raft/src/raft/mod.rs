@@ -22,10 +22,17 @@ use crate::proto::raftpb::*;
 
 pub use self::states::State;
 
-pub struct ApplyMsg {
-    pub command_valid: bool,
-    pub command: Vec<u8>,
-    pub command_index: u64,
+#[derive(Debug)]
+pub enum ApplyMsg {
+    Command {
+        index: u64,
+        command: Vec<u8>,
+    },
+    Snapshot {
+        index: u64,
+        term: u64,
+        snapshot: Vec<u8>,
+    },
 }
 
 type RpcResult<T> = labrpc::Result<T>;
@@ -343,12 +350,11 @@ impl Raft {
         }
 
         for i in (self.v.commit_index + 1)..=new_commit_index {
-            let msg = ApplyMsg {
-                command_valid: true,
+            let msg = ApplyMsg::Command {
+                index: i as u64,
                 command: self.p.log[i].data.clone(),
-                command_index: i as u64,
             };
-            rlog!(self, "commit and apply msg at {}: {:?}", i, msg.command);
+            rlog!(self, "commit and apply msg at {}: {:?}", i, msg);
             self.apply_tx.unbounded_send(msg).unwrap();
         }
 
@@ -805,6 +811,27 @@ impl Node {
         }
     }
 
+    /// the service says it has created a snapshot that has
+    /// all info up to and including index. this means the
+    /// service no longer needs the log through (and including)
+    /// that index. Raft should now trim its log as much as possible.
+    pub fn snapshot(&mut self, index: u64, snapshot: Vec<u8>) {
+        // Your code here (2D).
+        todo!()
+    }
+
+    /// A service wants to switch to snapshot.  Only do so if Raft hasn't
+    /// have more recent info since it communicate the snapshot on applyCh.
+    pub fn cond_install_snapshot(
+        &mut self,
+        last_included_term: u64,
+        last_included_index: u64,
+        snapshot: Vec<u8>,
+    ) -> bool {
+        // Your code here (2D).
+        todo!()
+    }
+
     /// the tester calls kill() when a Raft instance won't be
     /// needed again. you are not required to do anything in
     /// kill(), but it might be convenient to (for example)
@@ -850,5 +877,13 @@ impl RaftService for Node {
             rlog!(raft, "rpc <- {:?}", result);
         }
         result
+    }
+
+    /// RPC service handler for `InstallSnapshot`.
+    async fn install_snapshot(
+        &self,
+        args: InstallSnapshotArgs,
+    ) -> labrpc::Result<InstallSnapshotReply> {
+        todo!()
     }
 }
